@@ -10,7 +10,9 @@ import java.io.InputStream;
 import java.util.Properties;
 
 /**
- * Created by gnuhpc on 2016/12/11.
+ *
+ * @author gnuhpc
+ * @date 2016/12/11
  */
 
 @SuppressWarnings("ALL")
@@ -32,7 +34,7 @@ public class CommandLineValues {
     @Option(name = "-l", aliases = {"--logfile"}, usage = "Specify a log file")
     private String logFile;
 
-    @Option(name = "--version", usage = "Show Hangout Version")
+    @Option(name = "--version", usage = "Show Hangout Version", help = true)
     private boolean isShowVersion;
 
     @Option(name = "-v", usage = "set log level to info")
@@ -58,6 +60,11 @@ public class CommandLineValues {
             // If help is needed
             if (isHelp) {
                 parser.printUsage(System.err);
+                System.exit(0);
+            }
+            // show version
+            if (isShowVersion) {
+                printVersion();
                 System.exit(0);
             }
         } catch (CmdLineException e) {

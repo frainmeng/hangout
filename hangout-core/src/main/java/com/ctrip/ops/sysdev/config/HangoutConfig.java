@@ -11,6 +11,11 @@ import java.net.URLConnection;
 import java.util.Map;
 
 
+/**
+ *
+ * @author gnuhpc
+ * @date 2016/12/11
+ */
 @SuppressWarnings("rawtypes")
 public class HangoutConfig<T> {
     private static final String HTTP = "http://";
