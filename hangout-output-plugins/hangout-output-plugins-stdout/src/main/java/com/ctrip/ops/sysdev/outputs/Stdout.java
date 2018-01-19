@@ -1,5 +1,6 @@
 package com.ctrip.ops.sysdev.outputs;
 
+import java.util.List;
 import java.util.Map;
 
 import com.ctrip.ops.sysdev.baseplugin.BaseOutput;
@@ -10,6 +11,10 @@ public class Stdout extends BaseOutput {
 
     public Stdout(Map config) {
         super(config);
+    }
+
+    public Stdout(Map config, List<BaseOutput> errorOutputProcessors) {
+        super(config,errorOutputProcessors);
     }
 
     @Override

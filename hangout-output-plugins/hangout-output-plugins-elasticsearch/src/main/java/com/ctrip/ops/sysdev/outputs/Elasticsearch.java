@@ -3,12 +3,10 @@ package com.ctrip.ops.sysdev.outputs;
 import com.ctrip.ops.sysdev.baseplugin.BaseOutput;
 import com.ctrip.ops.sysdev.render.DateFormatter;
 import com.ctrip.ops.sysdev.render.TemplateRender;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.DocWriteRequest;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.bulk.*;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
@@ -50,7 +48,12 @@ public class Elasticsearch extends BaseOutput {
     public Elasticsearch(Map config) {
         super(config);
     }
+    public Elasticsearch(Map config,List<BaseOutput> errorOutputProcessors) {
+        super(config,errorOutputProcessors);
+    }
 
+
+    @Override
     protected void prepare() {
         this.index = (String) config.get("index");
 
@@ -150,7 +153,26 @@ public class Elasticsearch extends BaseOutput {
                                           BulkResponse response) {
                         logger.info("bulk done with executionId: " + executionId);
                         List<DocWriteRequest> requests = request.requests();
-                        int toBeTry = 0;
+
+                        List<Map<String,Object>> errorEvents = new ArrayList<>();
+                        //有请求失败
+                        if (response.hasFailures()) {
+                            for (BulkItemResponse item : response.getItems()) {
+                                if (item.isFailed()) {
+                                    DocWriteRequest writeRequest = requests.get(item.getItemId());
+                                    if (writeRequest instanceof IndexRequest) {
+                                        errorEvents.add(((IndexRequest) writeRequest).sourceAsMap());
+                                    }
+                                }
+                            }
+                            if (CollectionUtils.isNotEmpty(errorEvents)) {
+                                processError(errorEvents);
+                            }
+                        }
+
+
+
+                        /*int toBeTry = 0;
                         int totalFailed = 0;
                         for (BulkItemResponse item : response.getItems()) {
                             if (item.isFailed()) {
@@ -192,18 +214,30 @@ public class Elasticsearch extends BaseOutput {
                             }
                         } else {
                             logger.debug("no docs need to retry");
-                        }
+                        }*/
 
                     }
-
                     @Override
                     public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
                         logger.error("bulk got exception: " + failure.getMessage());
+                        if (CollectionUtils.isNotEmpty(errorOutputProcessors)) {
+                            List<Map<String,Object>> errorEvents = new ArrayList<>();
+                            request.requests().forEach(docWriteRequest -> {
+                                IndexRequest indexRequest = (IndexRequest)docWriteRequest;
+                                errorEvents.add(indexRequest.sourceAsMap());
+                            });
+                            processError(errorEvents);
+                        }
                     }
                 }).setBulkActions(bulkActions)
                 .setBulkSize(new ByteSizeValue(bulkSize, ByteSizeUnit.MB))
                 .setFlushInterval(TimeValue.timeValueSeconds(flushInterval))
-                .setConcurrentRequests(concurrentRequests).build();
+                .setBackoffPolicy(
+                        BackoffPolicy
+                                .exponentialBackoff(TimeValue.timeValueMillis(100),3)
+                )
+                .setConcurrentRequests(concurrentRequests)
+                .build();
     }
 
     protected void emit(final Map event) {
@@ -219,7 +253,7 @@ public class Elasticsearch extends BaseOutput {
         if (this.parentRender != null) {
             indexRequest.parent(parentRender.render(event).toString());
         }
-        this.bulkProcessor.add(indexRequest);
+        BulkProcessor processor = this.bulkProcessor.add(indexRequest);
     }
 
     public void shutdown() {

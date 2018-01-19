@@ -1,17 +1,16 @@
 package com.ctrip.ops.sysdev.baseplugin;
 
+import com.ctrip.ops.sysdev.utils.StatsdUtils;
 import com.ctrip.ops.sysdev.utils.Utils;
 import com.ctrip.ops.sysdev.decoders.Decode;
 import com.ctrip.ops.sysdev.decoders.JsonDecoder;
 import com.ctrip.ops.sysdev.decoders.PlainDecoder;
 import lombok.extern.log4j.Log4j;
+import org.apache.commons.collections4.CollectionUtils;
 
 
 import java.lang.reflect.Constructor;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import java.util.Map.Entry;
 
@@ -21,8 +20,10 @@ public abstract class BaseInput extends Base {
     protected Decode decoder;
     protected List<BaseFilter> filterProcessors;
     protected List<BaseOutput> outputProcessors;
+    protected List<BaseOutput> errorOutputProcessors;
     protected ArrayList<Map> filters;
     protected ArrayList<Map> outputs;
+    protected ArrayList<Map> errorOutputs;
 
     public BaseInput(Map config, ArrayList<Map> filters, ArrayList<Map> outputs)
             throws Exception {
@@ -31,6 +32,21 @@ public abstract class BaseInput extends Base {
         this.config = config;
         this.filters = filters;
         this.outputs = outputs;
+        this.createDecoder();
+
+        this.prepare();
+
+        this.registerShutdownHookForSelf();
+    }
+
+    public BaseInput(Map config, ArrayList<Map> filters, ArrayList<Map> outputs,ArrayList<Map> errorOutputs)
+            throws Exception {
+        super(config);
+
+        this.config = config;
+        this.filters = filters;
+        this.outputs = outputs;
+        this.errorOutputs = errorOutputs;
         this.createDecoder();
 
         this.prepare();
@@ -72,6 +88,21 @@ public abstract class BaseInput extends Base {
     // so we should call createFilterProcessors and return filters in each thread.
     public List<BaseOutput> createOutputProcessors() {
 
+        List<BaseOutput> outputProcessors = createOutputProcessors(outputs,this.errorOutputProcessors);
+        if (outputProcessors == null) {
+            log.error("Error: At least One output should be set.");
+            System.exit(-1);
+        }
+        return outputProcessors;
+    }
+
+    public List<BaseOutput> createErrorOutputProcessors() {
+        List<BaseOutput> errorOutputProcessors = createOutputProcessors(errorOutputs,null);
+        this.errorOutputProcessors = errorOutputProcessors;
+        return errorOutputProcessors;
+    }
+
+    private List<BaseOutput> createOutputProcessors(ArrayList<Map> outputs,List<BaseOutput> errorOutputProcessors){
         if (outputs != null) {
             outputProcessors = new ArrayList<>();
             outputs.stream().forEach((Map outputMap) -> {
@@ -90,9 +121,9 @@ public abstract class BaseInput extends Base {
                     for (String className : classNames) {
                         try {
                             outputClass = Class.forName(className);
-                            ctor = outputClass.getConstructor(Map.class);
+                            ctor = outputClass.getConstructor(Map.class,List.class);
                             log.info("build output " + outputType + " done");
-                            outputProcessors.add((BaseOutput) ctor.newInstance(outputConfig));
+                            outputProcessors.add((BaseOutput) ctor.newInstance(outputConfig,errorOutputProcessors));
                             break;
                         } catch (ClassNotFoundException e) {
                             if (tryCtrip == true) {
@@ -111,18 +142,16 @@ public abstract class BaseInput extends Base {
                 });
             });
         } else {
-            log.error("Error: At least One output should be set.");
-            System.exit(-1);
+            return null;
         }
-
-
         this.registerShutdownHook(outputProcessors);
         return outputProcessors;
     }
 
     public void process(String message, List<BaseFilter> filterProcessors, List<BaseOutput> outputProcessors) {
+        Map<String, Object> event = null;
         try {
-            Map<String, Object> event = this.decoder
+             event = this.decoder
                     .decode(message);
             this.preprocess(event);
 
@@ -160,10 +189,17 @@ public abstract class BaseInput extends Base {
                     }
                 }
             }
+            StatsdUtils.getClient().increment("success.count");
         } catch (Exception e) {
-            log.error("process event failed:" + message);
-            e.printStackTrace();
+            log.error("process_log_failed:" + message);
             log.error(e);
+            List<Map<String, Object>> errorEvents = new ArrayList<>();
+            if (event == null) {
+                event = new HashMap<>(3);
+                event.put("message",message);
+            }
+            errorEvents.add(event);
+            processError(errorEvents);
         } finally {
             if (this.enableMeter == true) {
                 this.meter.mark();
@@ -197,5 +233,19 @@ public abstract class BaseInput extends Base {
                 bo.shutdown();
             }
         }));
+    }
+
+    /**
+     * 错误时间
+     * @param events 时间列表
+     */
+    public void processError (List<Map<String, Object>> events) {
+        if (CollectionUtils.isNotEmpty(this.errorOutputProcessors)
+                && CollectionUtils.isNotEmpty(events)) {
+            StatsdUtils.getClient().count("error.count",events.size());
+            errorOutputProcessors.forEach(baseOutput -> events.forEach(event -> {
+                baseOutput.process(event);
+            }));
+        }
     }
 }

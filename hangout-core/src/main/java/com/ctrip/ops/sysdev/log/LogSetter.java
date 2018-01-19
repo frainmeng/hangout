@@ -35,7 +35,7 @@ public class LogSetter {
 
 
     private static void setLogger(CommandLineValues cmdLine, WriterAppender appender, Logger logger) {
-        String PATTERN = "%d %p %C %t %m%n";
+        String PATTERN = "%d %p %C %l %t %m%n";
         PatternLayout patternLayout = new PatternLayout(PATTERN);
         appender.setLayout(patternLayout);
         appender.activateOptions();

@@ -5,14 +5,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.ctrip.ops.sysdev.utils.StatsdUtils;
 import lombok.extern.log4j.Log4j;
 import com.ctrip.ops.sysdev.render.FreeMarkerRender;
 import com.ctrip.ops.sysdev.render.TemplateRender;
+import org.apache.commons.collections4.CollectionUtils;
 
 @Log4j
 public abstract class BaseOutput extends Base {
     protected Map config;
     protected List<TemplateRender> IF;
+
+    protected List<BaseOutput> errorOutputProcessors;
+
 
     public BaseOutput(Map config) {
         super(config);
@@ -34,6 +39,11 @@ public abstract class BaseOutput extends Base {
         }
 
         this.prepare();
+    }
+
+    public BaseOutput(Map config,List<BaseOutput> errorOutputProcessors) {
+        this(config);
+        this.errorOutputProcessors = errorOutputProcessors;
     }
 
     protected abstract void prepare();
@@ -59,6 +69,23 @@ public abstract class BaseOutput extends Base {
             if (this.enableMeter == true) {
                 this.meter.mark();
             }
+        }
+    }
+
+    /**
+     * 错误时间
+     * @param events 时间列表
+     */
+    public void processError (List<Map<String, Object>> events) {
+        if (CollectionUtils.isNotEmpty(this.errorOutputProcessors)
+                && CollectionUtils.isNotEmpty(events)) {
+
+            StatsdUtils.getClient().count("error.count", events.size());
+            errorOutputProcessors.forEach(baseOutput -> events.forEach(event -> {
+                System.out.printf("发生错误：");
+                System.out.println(event);
+                baseOutput.process(event);
+            }));
         }
     }
 }

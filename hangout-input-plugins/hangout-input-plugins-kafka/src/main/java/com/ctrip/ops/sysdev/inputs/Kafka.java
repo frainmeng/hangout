@@ -31,6 +31,10 @@ public class Kafka extends BaseInput {
                  ArrayList<Map> outputs) throws Exception {
         super(config, filter, outputs);
     }
+    public Kafka(Map<String, Object> config, ArrayList<Map> filter,
+                 ArrayList<Map> outputs,ArrayList<Map> errorOutputs) throws Exception {
+        super(config, filter, outputs,errorOutputs);
+    }
 
     protected void prepare() {
         //if null, utf-8 encoding will be used
@@ -103,13 +107,16 @@ public class Kafka extends BaseInput {
         private KafkaStream<String, String> kafkaStream;
         private List<BaseFilter> filterProcessors;
         private List<BaseOutput> outputProcessors;
+        private List<BaseOutput> errorOutputProcessors;
 
         public ConsumerThread(KafkaStream<String, String> kafkaStream, Kafka kafka) {
+            this.errorOutputProcessors = kafka.createErrorOutputProcessors();
             this.kafkaStream = kafkaStream;
             this.filterProcessors = kafka.createFilterProcessors();
             this.outputProcessors = kafka.createOutputProcessors();
         }
 
+        @Override
         public void run() {
             ConsumerIterator<String, String> it = kafkaStream.iterator();
             while (it.hasNext()) {

@@ -1,6 +1,7 @@
 package com.ctrip.ops.sysdev.outputs;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -23,6 +24,9 @@ public class Kafka extends BaseOutput {
         super(config);
     }
 
+    public Kafka(Map config, List<BaseOutput> errorOutputProcessors) {
+        super(config,errorOutputProcessors);
+    }
     protected void prepare() {
         if (!this.config.containsKey("topic")) {
             log.error("topic must be included in config");

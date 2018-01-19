@@ -23,6 +23,11 @@ public class Stdin extends BaseInput {
         super(config, filter, outputs);
     }
 
+    public Stdin(Map<String, Object> config, ArrayList<Map> filter,
+                 ArrayList<Map> outputs,ArrayList<Map> errorOutputs) throws Exception {
+        super(config, filter, outputs,errorOutputs);
+    }
+
     @Override
     protected void prepare() {
         createFilterProcessors();

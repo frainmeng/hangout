@@ -40,6 +40,7 @@ public class Main {
         final List<HashMap<String, Map>> filterConfigs = (ArrayList<HashMap<String, Map>>) configs.get("filters");
         final List<HashMap<String, Map>> outputConfigs = (ArrayList<HashMap<String, Map>>) configs.get("outputs");
         final List<HashMap<String, Map>> metricsConfigs = (ArrayList<HashMap<String, Map>>) configs.get("metrics");
+        final List<HashMap<String, Map>> errorOutputsConfigs = (ArrayList<HashMap<String, Map>>) configs.get("errorOutputs");
 
         if (metricsConfigs != null) {
             metricsConfigs.forEach(metric -> {
@@ -96,12 +97,14 @@ public class Main {
                                 Constructor<?> ctor = inputClass.getConstructor(
                                         Map.class,
                                         ArrayList.class,
+                                        ArrayList.class,
                                         ArrayList.class);
                                 //instantiate the input,prepare() and registerShutdownHookForSelf() are called here.
                                 BaseInput inputInstance = (BaseInput) ctor.newInstance(
                                         inputConfig,
                                         filterConfigs,
-                                        outputConfigs);
+                                        outputConfigs ,
+                                        errorOutputsConfigs);
 
                                 logger.info("build input " + inputType + " done");
                                 //Start working,guy.
@@ -124,6 +127,7 @@ public class Main {
                         }
                     });
                 });
+        System.out.println("hangout start success !");
     }
 }
 

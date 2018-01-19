@@ -35,6 +35,10 @@ public class NewKafka extends BaseInput {
         super(config, filter, outputs);
     }
 
+    public NewKafka(Map<String, Object> config, ArrayList<Map> filter,
+                    ArrayList<Map> outputs,ArrayList<Map> errorOutputs) throws Exception {
+        super(config, filter, outputs,errorOutputs);
+    }
 
     protected void prepare() {
         topics = (Map<String, Integer>) this.config.get("topic");

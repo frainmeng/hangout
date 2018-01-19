@@ -41,6 +41,9 @@ public class ElasticsearchHTTP extends BaseOutput {
     public ElasticsearchHTTP(Map config) {
         super(config);
     }
+    public ElasticsearchHTTP(Map config,List<BaseOutput> errorOutputProcessors) {
+        super(config,errorOutputProcessors);
+    }
 
     protected void prepare() {
         try {
