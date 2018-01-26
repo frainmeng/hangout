@@ -17,6 +17,7 @@
         <module>hangout-output-plugins-kafka</module>
         <module>hangout-output-plugins-null</module>
         <module>hangout-output-plugins-stdout</module>
+        <module>hangout-output-plugins-log4j</module>
     </modules>
 
 

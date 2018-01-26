@@ -80,11 +80,13 @@ public abstract class BaseOutput extends Base {
         if (CollectionUtils.isNotEmpty(this.errorOutputProcessors)
                 && CollectionUtils.isNotEmpty(events)) {
 
-            StatsdUtils.getClient().count("error.count", events.size());
             errorOutputProcessors.forEach(baseOutput -> events.forEach(event -> {
-                System.out.printf("发生错误：");
-                System.out.println(event);
-                baseOutput.process(event);
+                try {
+                    StatsdUtils.getClient().increment(event.get("business")+"error.count");
+                    baseOutput.process(event);
+                } catch (Exception e) {
+                    log.error("错误处理输出异常",e);
+                }
             }));
         }
     }
