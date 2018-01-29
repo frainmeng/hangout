@@ -244,7 +244,7 @@ public abstract class BaseInput extends Base {
                 && CollectionUtils.isNotEmpty(events)) {
             errorOutputProcessors.forEach(baseOutput -> events.forEach(event -> {
                 try {
-                    StatsdUtils.getClient().increment(event.get("business")+"error.count");
+                    StatsdUtils.getClient().increment(event.get("business")+".error.count");
                     baseOutput.process(event);
                 } catch (Exception e){
                     log.error("错误处理输出异常",e);
